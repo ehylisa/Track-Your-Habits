@@ -8,23 +8,68 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var habits: [Habit] = []
+    @StateObject private var store = HabitStore()
     @State private var showingAddSheet = false
 
     var body: some View {
         NavigationStack {
-            Group {
-                if habits.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(Date.now, format: .dateTime.weekday(.wide).month(.wide).day())
+                    .font(.custom("Roboto-Regular", size: 14))
+                    .foregroundStyle(Color.tokenText.opacity(0.5))
+                    .padding(.horizontal)
+                    .padding(.top, 4)
+                    .padding(.bottom, 8)
+
+                if !store.habits.isEmpty {
+                    let completed = store.habits.filter { $0.isCompletedToday() }.count
+                    let total = store.habits.count
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("\(completed) of \(total) completed today")
+                            .font(.custom("Roboto-Regular", size: 13))
+                            .foregroundStyle(Color.tokenText.opacity(0.45))
+                        ProgressView(value: Double(completed), total: Double(total))
+                            .tint(Color.tokenSuccess)
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+                }
+
+                Group {
+                if store.habits.isEmpty {
                     Text("No habits yet. Tap + to start.")
                         .font(.custom("Roboto-Regular", size: 14))
                         .foregroundStyle(Color.tokenText.opacity(0.4))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List(habits) { habit in
-                        Text(habit.name)
-                            .font(.custom("Roboto-Regular", size: 16))
-                            .foregroundStyle(Color.tokenText)
+                    List {
+                        ForEach($store.habits, id: \.id) { $habit in
+                            Button {
+                                habit.toggleToday()
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: habit.isCompletedToday() ? "checkmark.circle.fill" : "circle")
+                                        .font(.system(size: 24))
+                                        .foregroundStyle(habit.isCompletedToday() ? Color.tokenSuccess : Color.tokenText.opacity(0.3))
+                                    Text(habit.name)
+                                        .font(.custom("Roboto-Regular", size: 16))
+                                        .foregroundStyle(Color.tokenText)
+                                    Spacer()
+                                    let streak = habit.currentStreak()
+                                    if streak > 0 {
+                                        Text("🔥 \(streak)")
+                                            .font(.custom("Roboto-Regular", size: 14))
+                                            .foregroundStyle(Color.tokenText.opacity(0.4))
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .onDelete { indexSet in
+                            store.habits.remove(atOffsets: indexSet)
+                        }
                     }
+                }
                 }
             }
             .navigationTitle("Habits")
@@ -41,7 +86,7 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showingAddSheet) {
                 AddHabitSheet { name in
-                    habits.append(Habit(name: name))
+                    store.habits.append(Habit(name: name))
                 }
             }
         }
